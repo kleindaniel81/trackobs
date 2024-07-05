@@ -1,0 +1,18 @@
+v 3
+d trackobs: Stata module to keep track of observations
+d
+d
+d {cmd:trackobs} keeps a record of the number of observations in the current dataset.
+d
+d KW: data management
+d KW: observations
+d
+d Requires: Stata version 11.2
+d
+d Distribution-Date: 20240705
+d
+d Author: Daniel Klein
+d Support: email klein.daniel.81@gmail.com
+d
+f trackobs.ado
+f trackobs.sthlp
