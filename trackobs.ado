@@ -1,4 +1,4 @@
-*! version 1.4.0  05jun2024
+*! version 2.0.0  07jun2024
 program trackobs
     
     version 11.2
@@ -18,6 +18,8 @@ program trackobs
         local 0 : copy local zero
         
     }
+    
+    trackobs_chars_to_locals I group
     
     gettoken colon zero : 0 , parse(":") quotes bind
     if (`"`colon'"' == ":") ///
@@ -39,23 +41,29 @@ program trackobs
     
     nobreak {
         
-        trackobs_chars_to_locals I
-        
-        local N_was = c(N)
+        if ("`group'" == "") ///
+            local N_was = c(N)
+        else ///
+            trackobs_count N_was `group'
         
         capture noisily break ///
             version `=_caller()' : trackobs_command `macval(0)'
         local rc = _rc
         
-        local N_now = c(N)
+        if ("`group'" == "") ///
+            local N_now = c(N)
+        else ///
+            trackobs_count N_now `group'
         
         forvalues i = 1/`I' {
-            char _dta[trackobs_`i'] `: copy local trackobs_`i''
+            char _dta[trackobs_`i'] `macval(trackobs_`i')'
         }
+        
+        char _dta[trackobs_counter] `trackobs_counter'
         
         if ( (!`rc') | (`N_was'!=`N_now') ) {
             
-            trackobs_i `I' `N_was' `N_now' `macval(0)'
+            trackobs_next_i `I' `N_was' `N_now' `macval(0)'
             trackobs_return , `return' `sreturn'
             
             mata : c_locals_2(`rc')
@@ -87,6 +95,13 @@ end
 
 program trackobs_set
     
+    if ( !replay() ) {
+        
+        trackobs_settings `macval(0)'
+        exit
+        
+    }
+    
     syntax [ , RESET CLEAR ] // clear is retained as a synonym
     
     if (`"`: char _dta[trackobs_counter]'"' != "") {
@@ -103,6 +118,34 @@ program trackobs_set
     }
     
     char _dta[trackobs_counter] 0
+    
+end
+
+
+program trackobs_settings
+    
+    trackobs_counter I // error if not set
+    
+    gettoken what 0 : 0 , parse(" ,") quotes bind
+    
+    if (`"`what'"' == "group") {
+        
+        gettoken _n : 0 , parse(" ,") quotes bind        
+        if (`"`_n'"' != "_n") ///
+            syntax varlist(max=42)
+            /*
+                The limit of 42 variables is arbitrary;
+                cannot fit all variable names into char.
+            */
+        
+        char _dta[trackobs_counter] `I' `varlist'
+        
+        exit
+        
+    }
+    
+    display as err `"`what' not recognized"'
+    exit 198
     
 end
 
@@ -265,9 +308,11 @@ end
 
 program trackobs_counter
     
-    args lmname
+    args lmname_I lmname_group
     
-    local I : char _dta[trackobs_counter]
+    local trackobs_counter : char _dta[trackobs_counter]
+    
+    gettoken I trackobs_counter : trackobs_counter
     
     capture confirm integer number `I'
     if ( !_rc ) ///
@@ -280,33 +325,74 @@ program trackobs_counter
         
     }
     
-    if ("`lmname'" != "") ///
-        c_local `lmname' `I'
+    if ("`lmname_I'" != "") ///
+        c_local `lmname_I' `I'
+    
+    if ("`lmname_group'" == "") ///
+        exit
+    
+    if (`"`trackobs_counter'"' != "") {
+        
+        capture noisily confirm variable `trackobs_counter' , exact
+        if ( _rc ) {
+            
+            display as err "trackobs counter invalid"
+            exit 499
+            
+        }
+        
+    }
+    
+    c_local `lmname_group' `trackobs_counter'
     
 end
 
 
 program trackobs_chars_to_locals
     
-    args lmname
+    args lmname_I lmname_group
     
-    trackobs_counter I
+    if ("`lmname_group'" != "") ///
+        local group group
+    
+    trackobs_counter I `group'
     
     forvalues i = 1/`I' {
         c_local trackobs_`i' : char _dta[trackobs_`i']
     }
     
-    if ("`lmname'" != "") ///
-        c_local `lmname' `I'
+    c_local trackobs_counter : char _dta[trackobs_counter]
+    
+    if ("`lmname_I'" != "") ///
+        c_local `lmname_I' `I'
+    
+    if ("`lmname_group'" != "") ///
+        c_local `lmname_group' `group'
     
 end
 
 
-program trackobs_i
+program trackobs_count , sortpreserve
+    
+    gettoken lmname_N group : 0
+    
+    sort `group'
+    tempvar first
+    quietly by `group' : generate byte `first' = (_n==1)
+    mata : st_local("N",strofreal(colsum(st_data(.,"`first'")),"%21.0g"))
+    
+    c_local `lmname_N' `N'
+    
+end
+
+
+program trackobs_next_i
     
     gettoken I     0 : 0
     gettoken N_was 0 : 0
     gettoken N_now 0 : 0
+    
+    local 0 `macval(0)' // strip leading whitespace
     
     if (`"`macval(0)'"' == "") ///
         exit
@@ -320,8 +406,10 @@ program trackobs_i
         
     }
     
+    trackobs_counter Iwas group
+    
     char _dta[trackobs_`I'] `N_was' `N_now' `macval(0)'
-    char _dta[trackobs_counter] `I'
+    char _dta[trackobs_counter] `I' `group'
     
 end
 
@@ -372,7 +460,7 @@ void c_locals_2(real scalar rc)
         return
     
     C_LOCALS = st_dir("local","macro","C_LOCAL*")
-    if (st_local("C_LOCAL0") == st_local("0"))
+    if (substr(st_local("C_LOCAL0"),3,.) == st_local("0"))
         C_LOCALS = select(C_LOCALS,(C_LOCALS:!="C_LOCAL0"))
     
     for (i=rows(C_LOCALS); i; i--) {
@@ -398,6 +486,8 @@ exit
 /*  _________________________________________________________________________
                                                               version history
 
+2.0.0   07jul2024   bug fix when -trackobs- is called without arguments
+                    new sub-(sub-)command -set groups-
 1.4.0   05jul2024   major refactoring
                     call command under caller version
                     pass thru [c_]local macros

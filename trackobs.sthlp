@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  05jul2024}{...}
+{* *! version 2.0.0  07jul2024}{...}
 {cmd:help trackobs}
 {hline}
 
@@ -9,6 +9,7 @@
 {cmd:trackobs} {hline 2} Keep track of number of observations
 
 
+{...}
 {title:Syntax}
 
 {p 5 8}
@@ -20,8 +21,7 @@ Basic syntax
 
 {p 8 18 2}
 {cmd:trackobs} 
-{cmd::} 
-{it:command}
+{cmd::} {it:command}
 
 {p 8 18 2}
 {cmd:trackobs report}
@@ -38,6 +38,13 @@ where {it:command} is a Stata command
 Advanced syntax
 
 {p 8 18 2}
+{cmd:trackobs}
+{cmd:set group}
+{c -(}
+{cmd:_n} {c |} {varlist}
+{c )-}
+
+{p 8 18 2}
 {cmd:trackobs} 
 [[ {cmd:,} [{opt s}]{opt return} ] {cmd::} ] 
 [ {it:command} ]
@@ -52,19 +59,32 @@ Advanced syntax
 [ {cmd:,} {opt replace} ]
 
 
+{...}
 {title:Description}
 
 {pstd}
 {cmd:trackobs} 
 keeps a record of the number of observations in the current dataset. 
-The syntax diagram represents the typical workflow: 
+The basic syntax diagram represents the typical workflow: 
+
 
 {pstd}
 {cmd:trackobs set} 
-specifies that the number of observation be recorded. 
+specifies that the number of observations be recorded. 
 Technically, the command defines a characteristic, 
 {cmd:_dta[trackobs_counter]}, 
 that is used by {cmd:trackobs}; see {helpb char}. 
+
+{pstd}
+The sub-(sub-)command
+
+{phang2}
+{cmd:trackobs set group} {c -(} {cmd:_n} {c |} {varlist} {c )-}
+
+{pstd}
+specifies the variables that together define observations;
+{cmd:_n} (the default) 
+denotes that each row of the dataset defines an observation. 
 
 
 {pstd}
@@ -73,9 +93,12 @@ when specified as a prefix,
 records the number of observations before {it:command} is executed 
 and after {it:command} has concluded; 
 {it:command} itself is recorded, too. 
+
+{pstd}
 The full syntax is 
 
-        {cmd:trackobs} [[ {cmd:,} [{opt s}]{opt return} ] {cmd::} ] [ {it:command} ]
+{phang2}
+{cmd:trackobs} [[ {cmd:,} [{opt s}]{opt return} ] {cmd::} ] [ {it:command} ]
 
 {pstd}
 where the colon, following {cmd:trackobs}, must be typed 
@@ -97,7 +120,7 @@ optionally from {it:filename}.
 discards all records. 
 Records are saved with the dataset when they are not cleared. 
 Technically, the command deletes the contents of all 
-{cmd:_dta[trackobs_{it:*}]} characteristics 
+{cmd:_dta[trackobs_}{it:*}{cmd:]} characteristics 
 set by {cmd:trackobs} ; see {helpb char}. 
 
 
