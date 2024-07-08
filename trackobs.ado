@@ -1,4 +1,4 @@
-*! version 3.0.0  08jun2024
+*! version 3.0.1  08jun2024
 program trackobs
     
     version 11.2
@@ -51,19 +51,13 @@ program trackobs
         
         trackobs_clear
         
-        if ("`group'" == "") ///
-            local N_was = c(N)
-        else ///
-            trackobs_count N_was `group'
+        trackobs_count N_was `group'
         
         capture noisily break ///
             version `=_caller()' : trackobs_stata_command `macval(0)'
         local rc = _rc
         
-        if ("`group'" == "") ///
-            local N_now = c(N)
-        else ///
-            trackobs_count N_now `group'
+        trackobs_count N_now `group'
         
         capture trackobs_clear
         
@@ -417,7 +411,21 @@ program trackobs_chars_to_locals
 end
 
 
-program trackobs_count , sortpreserve
+program trackobs_count
+    
+    gettoken lmname_N 0 : 0
+    local group `0' // strip leading whitespace
+    
+    if ("`group'" == "") ///
+        local N = c(N)
+    else ///
+        trackobs_count_group N `group'
+    
+    c_local `lmname_N' `N'
+    
+end
+
+program trackobs_count_group , sortpreserve
     
     gettoken lmname_N group : 0
     
@@ -523,6 +531,7 @@ exit
 /*  _________________________________________________________________________
                                                               version history
 
+3.0.1   08jun2024   minor refactoring
 3.0.0   08jul2024   discard _dta[trackobs_*] from using datasets 
                         after -merge-, -append-, -joinby-, etc.
                     -trackobs set- now confirms next _dta[trackobs_i]
