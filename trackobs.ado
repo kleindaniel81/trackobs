@@ -1,9 +1,17 @@
-*! version 2.0.0  07jun2024
+*! version 3.0.0  08jun2024
 program trackobs
     
     version 11.2
     
     gettoken subcmd : 0 , parse(" ,") quotes bind
+    
+    if (`"`subcmd'"' == "") {
+        
+        trackobs_display_settings `macval(0)'
+        exit
+        
+    }
+    
     if ( inlist(`"`subcmd'"',"set","clear","report","saving") ) {
         
         trackobs_`macval(0)'
@@ -41,19 +49,23 @@ program trackobs
     
     nobreak {
         
+        trackobs_clear
+        
         if ("`group'" == "") ///
             local N_was = c(N)
         else ///
             trackobs_count N_was `group'
         
         capture noisily break ///
-            version `=_caller()' : trackobs_command `macval(0)'
+            version `=_caller()' : trackobs_stata_command `macval(0)'
         local rc = _rc
         
         if ("`group'" == "") ///
             local N_now = c(N)
         else ///
             trackobs_count N_now `group'
+        
+        capture trackobs_clear
         
         forvalues i = 1/`I' {
             char _dta[trackobs_`i'] `macval(trackobs_`i')'
@@ -64,6 +76,7 @@ program trackobs
         if ( (!`rc') | (`N_was'!=`N_now') ) {
             
             trackobs_next_i `I' `N_was' `N_now' `macval(0)'
+            
             trackobs_return , `return' `sreturn'
             
             mata : c_locals_2(`rc')
@@ -77,7 +90,7 @@ program trackobs
 end
 
 
-program trackobs_command
+program trackobs_stata_command
     
     version 11.2
     
@@ -91,13 +104,35 @@ end
 
 
 /*  _________________________________________________________________________
+                                                         display settings  */
+
+program trackobs_display_settings
+    
+    syntax // nothing expected; nothing allowed
+    
+    trackobs_settings I group
+    
+    if ("`group'" == "") ///
+        local group _n
+    
+    display
+    display as txt "trackobs counter : " as res `I'
+    display as txt "trackobs group   : " as res "`group'"
+    
+end
+
+
+/*  _________________________________________________________________________
                                                                       set  */
 
 program trackobs_set
     
     if ( !replay() ) {
         
-        trackobs_settings `macval(0)'
+        trackobs_set_settings `macval(0)'
+        
+        trackobs_display_settings
+        
         exit
         
     }
@@ -119,12 +154,14 @@ program trackobs_set
     
     char _dta[trackobs_counter] 0
     
+    trackobs_display_settings
+    
 end
 
 
-program trackobs_settings
+program trackobs_set_settings
     
-    trackobs_counter I // error if not set
+    trackobs_settings I // error if not set
     
     gettoken what 0 : 0 , parse(" ,") quotes bind
     
@@ -157,7 +194,7 @@ program trackobs_clear
     
     syntax // nothing allowed
     
-    trackobs_counter I
+    trackobs_settings I
     
     nobreak {
         
@@ -266,7 +303,7 @@ program trackobs_return , sclass
     if ("`return'`sreturn'" == "") ///
         exit
     
-    trackobs_counter I
+    trackobs_settings I
     
     if ( !`I' ) ///
         exit
@@ -306,13 +343,13 @@ end
 /*  _________________________________________________________________________
                                                                 utilities  */
 
-program trackobs_counter
+program trackobs_settings
     
     args lmname_I lmname_group
     
-    local trackobs_counter : char _dta[trackobs_counter]
+    local trackobs_settings : char _dta[trackobs_counter]
     
-    gettoken I trackobs_counter : trackobs_counter
+    gettoken I trackobs_settings : trackobs_settings
     
     capture confirm integer number `I'
     if ( !_rc ) ///
@@ -328,22 +365,30 @@ program trackobs_counter
     if ("`lmname_I'" != "") ///
         c_local `lmname_I' `I'
     
+    if (`"`: char _dta[trackobs_`++I']'"' != "") {
+        
+        display as err "trackobs counter invalid"
+        display as err "_dta[trackobs_`I'] already defined"
+        exit 499
+        
+    }
+    
     if ("`lmname_group'" == "") ///
         exit
     
-    if (`"`trackobs_counter'"' != "") {
+    if (`"`trackobs_settings'"' != "") {
         
-        capture noisily confirm variable `trackobs_counter' , exact
+        capture noisily confirm variable `trackobs_settings' , exact
         if ( _rc ) {
             
-            display as err "trackobs counter invalid"
+            display as err "trackobs group invalid"
             exit 499
             
         }
         
     }
     
-    c_local `lmname_group' `trackobs_counter'
+    c_local `lmname_group' `trackobs_settings'
     
 end
 
@@ -355,7 +400,7 @@ program trackobs_chars_to_locals
     if ("`lmname_group'" != "") ///
         local group group
     
-    trackobs_counter I `group'
+    trackobs_settings I `group'
     
     forvalues i = 1/`I' {
         c_local trackobs_`i' : char _dta[trackobs_`i']
@@ -392,23 +437,15 @@ program trackobs_next_i
     gettoken N_was 0 : 0
     gettoken N_now 0 : 0
     
-    local 0 `macval(0)' // strip leading whitespace
+    local cmdline `macval(0)' // strip leading whitespace
     
-    if (`"`macval(0)'"' == "") ///
+    if (`"`macval(cmdline)'"' == "") ///
         exit
     
+    trackobs_settings Iwas group
+    
     local ++I
-    
-    if (`"`: char _dta[trackobs_`I']'"' != "") {
-        
-        display as err "_dta[trackobs_`I'] already defined"
-        exit 499
-        
-    }
-    
-    trackobs_counter Iwas group
-    
-    char _dta[trackobs_`I'] `N_was' `N_now' `macval(0)'
+    char _dta[trackobs_`I'] `N_was' `N_now' `macval(cmdline)'
     char _dta[trackobs_counter] `I' `group'
     
 end
@@ -486,6 +523,11 @@ exit
 /*  _________________________________________________________________________
                                                               version history
 
+3.0.0   08jul2024   discard _dta[trackobs_*] from using datasets 
+                        after -merge-, -append-, -joinby-, etc.
+                    -trackobs set- now confirms next _dta[trackobs_i]
+                    -trackobs set- now displays settings
+                    -trackobs- without arguments now displays settings
 2.0.0   07jul2024   bug fix when -trackobs- is called without arguments
                     new sub-(sub-)command -set groups-
 1.4.0   05jul2024   major refactoring

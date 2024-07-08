@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0  07jul2024}{...}
+{* *! version 2.1.0  08jul2024}{...}
 {cmd:help trackobs}
 {hline}
 
@@ -95,13 +95,13 @@ and after {it:command} has concluded;
 {it:command} itself is recorded, too. 
 
 {pstd}
-The full syntax is 
+The full prefix syntax is 
 
 {phang2}
 {cmd:trackobs} [[ {cmd:,} [{opt s}]{opt return} ] {cmd::} ] [ {it:command} ]
 
 {pstd}
-where the colon, following {cmd:trackobs}, must be typed 
+where the colon following {cmd:trackobs} must be typed 
 if option [{opt s}]{opt return} is specified 
 or if {it:command} is also a {cmd:trackobs} subcommand. 
 Technically, {cmd:trackobs} defines a characteristic, 
@@ -129,26 +129,48 @@ set by {cmd:trackobs} ; see {helpb char}.
 saves the recorded commands 
 and associated numbers of observations to a Stata dataset. 
 This subcommand is useful when you want to manipulate the recorded information. 
-Concering workflow, {cmd:trackobs saving} is optional; 
+Regarding workflow, {cmd:trackobs saving} is optional; 
 {cmd:trackobs} results are saved along with the dataset 
-when they are not cleared.
+when they are not cleared, but see Remarks below.
 
 
 {pstd}
-Note:
+{cmd:trackobs}
+typed without arguments displays the current settings.
+
+
+{...}
+{title:Remarks}
+
+{pstd}
+When datasets are combined using 
+{help merge}, 
+{help append}, 
+{help joinby},
+or similar commands, 
+{cmd:trackobs}
+discards {cmd:_dta[trackobs_}{it:*}{cmd:]} characteristics
+from the so-called using-datasets. 
+
+{pstd}
+Some commands, such as {helpb preserve} and {helpb restore}, 
+do not work correctly when they are prefixed with {cmd:trackobs}. 
+
+{pstd}
+In rare situations, 
 {cmd:trackobs} 
-might fail when {it:command} modifies the {cmd:_dta} 
-characteristics; see {helpb char}. Some commands, such as 
-{helpb preserve} and {helpb restore}, do not work correctly when 
-they are prefixed with {cmd:trackobs}.
+might fail unexpectedly when {it:command} modifies {cmd:_dta} characteristics; 
+see {helpb char}. 
 
 
+{...}
 {title:Options}
 
 {phang}
 {opt reset} 
-clears previous {cmd:trackobs} results 
-and resets the counter. 
+clears previous {cmd:trackobs} results, 
+including the {cmd:group} setting,
+and resets the counter.  
 
 {phang}
 [{opt s}]{opt return} 
