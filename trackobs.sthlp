@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1.0  08jul2024}{...}
+{* *! version 3.0.1  08jul2024}{...}
 {cmd:help trackobs}
 {hline}
 
