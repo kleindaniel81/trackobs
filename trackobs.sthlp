@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.0.1  08jul2024}{...}
+{* *! version 3.1.0  09jul2024}{...}
 {cmd:help trackobs}
 {hline}
 
@@ -46,7 +46,7 @@ Advanced syntax
 
 {p 8 18 2}
 {cmd:trackobs} 
-[[ {cmd:,} [{opt s}]{opt return} ] {cmd::} ] 
+[[ {cmd:,} {opt label(string)} [{opt s}]{opt return} ] {cmd::} ] 
 [ {it:command} ]
 
 {p 8 18 2}
@@ -76,7 +76,7 @@ Technically, the command defines a characteristic,
 that is used by {cmd:trackobs}; see {helpb char}. 
 
 {pstd}
-The sub-(sub-)command
+The advanced syntax
 
 {phang2}
 {cmd:trackobs set group} {c -(} {cmd:_n} {c |} {varlist} {c )-}
@@ -85,6 +85,9 @@ The sub-(sub-)command
 specifies the variables that together define observations;
 {cmd:_n} (the default) 
 denotes that each row of the dataset defines an observation. 
+The advanced syntax requires the datset be 
+{cmd:trackobs set}
+before.
 
 
 {pstd}
@@ -95,14 +98,16 @@ and after {it:command} has concluded;
 {it:command} itself is recorded, too. 
 
 {pstd}
-The full prefix syntax is 
+The advanced prefix syntax is 
 
 {phang2}
-{cmd:trackobs} [[ {cmd:,} [{opt s}]{opt return} ] {cmd::} ] [ {it:command} ]
+{cmd:trackobs} [[ {cmd:,} {opt label(string)} [{opt s}]{opt return} ] 
+{cmd::} ] [ {it:command} ]
 
 {pstd}
-where the colon following {cmd:trackobs} must be typed 
-if option [{opt s}]{opt return} is specified 
+where the colon following 
+{cmd:trackobs} 
+must be typed if options are specified 
 or if {it:command} is also a {cmd:trackobs} subcommand. 
 Technically, {cmd:trackobs} defines a characteristic, 
 {cmd:_dta[trackobs_}{it:i}{cmd:]} (see {help char}),
@@ -121,7 +126,7 @@ discards all records.
 Records are saved with the dataset when they are not cleared. 
 Technically, the command deletes the contents of all 
 {cmd:_dta[trackobs_}{it:*}{cmd:]} characteristics 
-set by {cmd:trackobs} ; see {helpb char}. 
+set by {cmd:trackobs} ; see {help char}. 
 
 
 {pstd}
@@ -168,18 +173,27 @@ see {helpb char}.
 
 {phang}
 {opt reset} 
-clears previous {cmd:trackobs} results, 
-including the {cmd:group} setting,
+clears previous {cmd:trackobs} records (technically: characteristics), 
+including the {cmd:group} variables,
 and resets the counter.  
+
+{phang}
+{opt label(string)}
+defines a label (up to 80 characters) for the respective {it:command}, if any.
+When {it:command} is not specified, 
+the current number of observations are stored together with {it:string}.
 
 {phang}
 [{opt s}]{opt return} 
 returns the number of observations before {it:command} was executed, 
 the number of observations when {it:command} concluded, 
+the command label, if any,
 and {it:command} itself 
 in {cmd:s()} or {cmd:r()}. 
-When {it:command} is not specified, 
-the last recorded command and the associated numbers of observations 
+When neither {opt label()} nor {it:command} are specified, 
+the last recorded command, 
+its label, if any, 
+and the associated numbers of observations 
 are returned.
 
 {phang}
@@ -187,20 +201,49 @@ are returned.
 allows {cmd:trackobs} to overwrite {it:filename}.
 
 
+{...}
 {title:Examples}
+
+{pstd}
+Basic example
 
 {phang2}{cmd:. trackobs set}{p_end}
 {phang2}{cmd:. trackobs : sysuse auto}{p_end}
 {phang2}{cmd:. trackobs : drop if foreign}{p_end}
 {phang2}{cmd:. trackobs report}{p_end}
+
+{pstd}
+Continuation of the above
+
+{phang2}{cmd:. trackobs , label(above avg. mpg) : keep if mpg > 20}{p_end}
+{phang2}{cmd:. trackobs set group rep78}{p_end}
+{phang2}{cmd:. trackobs , label(rep78 defines observations now)}{p_end}
+{phang2}{cmd:. trackobs : drop if rep78 >= .}{p_end}
+{phang2}{cmd:. keep if weight < 3368}{p_end}
+{phang2}{cmd:. trackobs , label(rep78 with below avg. weight)}{p_end}
+{phang2}{cmd:. trackobs report}{p_end}
+
+{pstd}
+Clean up
+
 {phang2}{cmd:. trackobs clear}{p_end}
 
 
+{...}
 {title:Saved results}
 
 {pstd}
 {cmd:trackobs} 
-stores its results in characteristics; see {helpb char}.
+stores its results in characteristics; see {helpb char}. 
+Currently, the command defines and modifies the following characteristics:
+
+        {cmd:_dta[trackobs_counter]}
+        {cmd:_dta[trackobs_}{it:i}{cmd:]}
+
+{pstd}
+Do not change the contents of these characteritics, 
+except by using {cmd:trackobs}.
+
 
 {pstd}
 {cmd:trackobs} 
@@ -213,6 +256,8 @@ Macros{p_end}
 {synopt:{cmd:s(N_was)}}number of observations before {it:command} was executed
 {p_end}
 {synopt:{cmd:s(N_now)}}number of observations when {it:command} concluded
+{p_end}
+{synopt:{cmd:s(label)}}label, if any, associated with {it:command}
 {p_end}
 {synopt:{cmd:s(cmdline)}}{it:command} as typed
 {p_end}
@@ -233,6 +278,8 @@ Scalars{p_end}
 {pstd}
 Macros{p_end}
 {synoptset 16 tabbed}{...}
+{synopt:{cmd:r(label)}}label, if any, associated with {it:command}
+{p_end}
 {synopt:{cmd:r(cmdline)}}{it:command} as typed
 {p_end}
 
@@ -243,7 +290,7 @@ Macros{p_end}
 {cmd:trackobs} 
 was first published on 
 {browse "https://www.statalist.org/forums/forum/general-stata-discussion/general/1452888-higher-order-commands?p=1452933#post1452933":Statalist}
-as an answer to a request from an anonymous poster.
+in response to an anonymous post.
 
 
 {title:Support}

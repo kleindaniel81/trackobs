@@ -1,4 +1,4 @@
-*! version 3.0.1  08jun2024
+*! version 3.1.0  09jun2024
 program trackobs
     
     version 11.2
@@ -19,13 +19,8 @@ program trackobs
         
     }
     
-    if (`"`subcmd'"' == ",") {
-        
-        gettoken 0 zero : 0 , parse(":") quotes bind
-        syntax [ , RETURN SRETURN ]
-        local 0 : copy local zero
-        
-    }
+    if (`"`subcmd'"' == ",") ///
+        trackobs_options `macval(0)'
     
     trackobs_chars_to_locals I group
     
@@ -69,7 +64,7 @@ program trackobs
         
         if ( (!`rc') | (`N_was'!=`N_now') ) {
             
-            trackobs_next_i `I' `N_was' `N_now' `macval(0)'
+            trackobs_next_i `I' `N_was' `N_now' `"`label'"' `macval(0)'
             
             trackobs_return , `return' `sreturn'
             
@@ -262,19 +257,28 @@ program trackobs_saving
         generate byte N_now = .z
         char N_now[varname] "Obs. now"
         
+        generate label = ""
+        char label[varname] "Label"
+        
         forvalues i = 1/`I' {
             
             gettoken N_was trackobs_`i' : trackobs_`i'
             gettoken N_now trackobs_`i' : trackobs_`i'
+            gettoken label trackobs_`i' : trackobs_`i'
             
             local trackobs_`i' `macval(trackobs_`i')'
             
             replace N_was = `N_was' in `i'
             replace N_now = `N_now' in `i'
             
+            replace label = `"`label'"' in `i'
+            
             replace cmdline = `"`macval(trackobs_`i')'"' in `i'
             
         }
+        
+        capture assert (label == "") , fast
+        if ( !_rc ) version 15 : drop label
         
         char _dta[trackobs] "trackobs"
         
@@ -292,7 +296,7 @@ end
 
 program trackobs_return , sclass
     
-    syntax [ , RETURN SRETURN ]
+    syntax [ , SRETURN RETURN ]
     
     if ("`return'`sreturn'" == "") ///
         exit
@@ -306,18 +310,20 @@ program trackobs_return , sclass
     
     gettoken N_was trackobs_I : trackobs_I
     gettoken N_now trackobs_I : trackobs_I
+    gettoken label trackobs_I : trackobs_I
     
     if ("`sreturn'" == "sreturn") {
         
         sreturn clear
         sreturn local cmdline `macval(trackobs_I)'
+        sreturn local label   `"`label'"'
         sreturn local N_now   `N_now'
         sreturn local N_was   `N_was'
         
     }
     
     if ("`return'"  != "")  ///
-        trackobs_return_r `N_was' `N_now' `macval(trackobs_I)'
+        trackobs_return_r `N_was' `N_now' `"`label'"' `macval(trackobs_I)'
     
 end
 
@@ -326,16 +332,56 @@ program trackobs_return_r , rclass
     
     gettoken N_was 0 : 0
     gettoken N_now 0 : 0
+    gettoken label 0 : 0
     
     return scalar N_now = `N_now'
     return scalar N_was = `N_was'
     return local  cmdline `macval(0)'
+    return local  label   `"`label'"'
     
 end
 
 
 /*  _________________________________________________________________________
                                                                 utilities  */
+
+    /*  _________________________________  trackobs options  */
+
+program trackobs_options
+    
+    gettoken 0 zero : 0 , parse(":") quotes bind
+    
+    syntax            ///
+    [ ,               ///
+        SRETURN       ///
+        RETURN        ///
+        LABEL(string) ///
+    ]
+    
+    if (`"`label'"' != "") {
+        
+        if (c(stata_version) >= 14) ///
+            local u u
+        
+        capture assert (`u'strlen(`"`label'"') <= 80)
+        if ( _rc ) {
+            
+            display as err "option label() invalid"
+            exit 198
+            
+        }
+        
+    }
+    
+    c_local sreturn : copy local sreturn
+    c_local return  : copy local return
+    c_local label   : copy local label
+    c_local 0       : copy local zero
+    
+end
+
+
+    /*  _________________________________  trackobs settings  */
 
 program trackobs_settings
     
@@ -387,6 +433,8 @@ program trackobs_settings
 end
 
 
+    /*  _________________________________  characteristics to locals  */
+
 program trackobs_chars_to_locals
     
     args lmname_I lmname_group
@@ -410,6 +458,8 @@ program trackobs_chars_to_locals
     
 end
 
+
+    /*  _________________________________  count  */
 
 program trackobs_count
     
@@ -439,21 +489,24 @@ program trackobs_count_group , sortpreserve
 end
 
 
+    /*  _________________________________  _dta[trackobs_i]  */
+
 program trackobs_next_i
     
     gettoken I     0 : 0
     gettoken N_was 0 : 0
     gettoken N_now 0 : 0
+    gettoken label 0 : 0 
     
     local cmdline `macval(0)' // strip leading whitespace
     
-    if (`"`macval(cmdline)'"' == "") ///
+    if ( (`"`macval(cmdline)'"'=="") & (`"`label'"'=="") ) ///
         exit
     
     trackobs_settings Iwas group
     
     local ++I
-    char _dta[trackobs_`I'] `N_was' `N_now' `macval(cmdline)'
+    char _dta[trackobs_`I'] `N_was' `N_now' `"`label'"' `macval(cmdline)'
     char _dta[trackobs_counter] `I' `group'
     
 end
@@ -531,6 +584,10 @@ exit
 /*  _________________________________________________________________________
                                                               version history
 
+3.1.0   09jun2024   new option -label()-
+                        implies additional s() and r(results)
+                        implies additional variable in -saving-
+                    minor refactoring
 3.0.1   08jun2024   minor refactoring
 3.0.0   08jul2024   discard _dta[trackobs_*] from using datasets 
                         after -merge-, -append-, -joinby-, etc.
