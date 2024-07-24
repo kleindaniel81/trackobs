@@ -1,4 +1,4 @@
-*! version 3.1.0  09jun2024
+*! version 3.1.1  24jun2024
 program trackobs
     
     version 11.2
@@ -278,7 +278,7 @@ program trackobs_saving
         }
         
         capture assert (label == "") , fast
-        if ( !_rc ) version 15 : drop label
+        if ( !_rc ) drop label
         
         char _dta[trackobs] "trackobs"
         
@@ -584,6 +584,7 @@ exit
 /*  _________________________________________________________________________
                                                               version history
 
+3.1.1   24jul2024   call -drop- under caller version, which is 11.2
 3.1.0   09jun2024   new option -label()-
                         implies additional s() and r(results)
                         implies additional variable in -saving-
